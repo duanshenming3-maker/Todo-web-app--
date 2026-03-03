@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Todo Web App</title>
+
+    <!-- 简单样式 -->
+    <style>
+      body {
+        font-family: Arial;
+        max-width: 600px;
+        margin: 40px auto;
+      }
+      li {
+        display: flex;
+        justify-content: space-between;
+        margin: 10px 0;
+      }
+      .done {
+        text-decoration: line-through;
+        color: gray;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Todo Web App</h1>
+
+    <!-- 添加 Todo 的表单 -->
+    <form id="form">
+      <input id="text" placeholder="输入待办事项..." />
+      <button type="submit">添加</button>
+    </form>
+
+    <!-- Todo 列表 -->
+    <ul id="list"></ul>
+
+    <script>
+      // 获取页面元素
+      const list = document.getElementById("list");
+      const form = document.getElementById("form");
+      const textInput = document.getElementById("text");
+
+      /*
+      ===============================
+        请求工具函数
+      ===============================
+      */
+      async function api(path, options) {
+        const res = await fetch(path, {
+          headers: { "Content-Type": "application/json" },
+          ...options,
+        });
+
+        if (res.status === 204) return null;
+
+        const data = await res.json();
+        return data;
+      }
+
+      /*
+      ===============================
+        渲染一个 Todo
+      ===============================
+      */
+      function render(todo) {
+        const li = document.createElement("li");
+
+        const span = document.createElement("span");
+        span.textContent = todo.text;
+
+        if (todo.done) {
+          span.className = "done";
+        }
+
+        // 复选框
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = todo.done;
+
+        checkbox.addEventListener("change", async () => {
+          const updated = await api(`/api/todos/${todo.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ done: checkbox.checked }),
+          });
+
+          span.className = updated.done ? "done" : "";
+        });
+
+        // 删除按钮
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "删除";
+
+        delBtn.onclick = async () => {
+          await api(`/api/todos/${todo.id}`, {
+            method: "DELETE",
+          });
+
+          li.remove();
+        };
+
+        li.appendChild(checkbox);
+        li.appendChild(span);
+        li.appendChild(delBtn);
+
+        return li;
+      }
+
+      /*
+      ===============================
+        加载全部 Todo
+      ===============================
+      */
+      async function load() {
+        const todos = await api("/api/todos");
+
+        list.innerHTML = "";
+
+        todos.forEach((todo) => {
+          list.appendChild(render(todo));
+        });
+      }
+
+      /*
+      ===============================
+        添加 Todo
+      ===============================
+      */
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const text = textInput.value.trim();
+        if (!text) return;
+
+        const todo = await api("/api/todos", {
+          method: "POST",
+          body: JSON.stringify({ text }),
+        });
+
+        list.prepend(render(todo));
+
+        textInput.value = "";
+      });
+
+      // 页面加载时执行
+      load();
+    </script>
+  </body>
+</html>
